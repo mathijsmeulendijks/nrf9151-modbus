@@ -1,0 +1,142 @@
+/// Mains AC-DC, supercap hold-up with charge current limit, 3.3 V rail, brownout.
+.ELEC: @STD::Import {
+    .project &= "electronics"
+    .org     &= "atopile"
+}
+
+.IRM10: @STD::Import {
+    .org     &= "jlc"
+    .project &= "C2857903"
+}
+
+.LDO33: @STD::Import {
+    .org     &= "jlc"
+    .project &= "C91728"
+}
+
+.SUPERCAP: @STD::Import {
+    .org     &= "jlc"
+    .project &= "C9900166265"
+}
+
+.SS14: @STD::Import {
+    .org     &= "jlc"
+    .project &= "C444721"
+}
+
+.SUPERVISOR: @STD::Import {
+    .org     &= "jlc"
+    .project &= "C2066862"
+}
+
+/// Panel AC → 5 V IRM → current-limited supercap OR → 3.3 V LDO + UVLO.
+.PowerTree: @type {
+    .ac_l: ELEC::Electrical
+    .ac_n: ELEC::Electrical
+
+    .power_5v_raw: ELEC::ElectricPower {
+        .voltage &= 5V +/- 5%
+    }
+    .power_vsys: ELEC::ElectricPower {
+        .voltage &= 4.0V..5.25V
+    }
+    .power_3v3: ELEC::ElectricPower {
+        .voltage &= 3.3V +/- 5%
+    }
+
+    .n_reset: ELEC::ElectricLogic
+    .n_reset.reference ~ .power_3v3
+
+    .vsys_sense: ELEC::ElectricLogic
+    .vsys_sense.reference ~ .power_3v3
+
+    .irm: IRM10::MW_IRM_10_5
+    .irm.AC_L ~ .ac_l
+    .irm.AC_N ~ .ac_n
+    .irm.Vpos ~ .power_5v_raw.hv
+    .irm.Vneg ~ .power_5v_raw.lv
+    .power_5v_raw.lv ~ .power_vsys.lv
+    .power_vsys.lv ~ .power_3v3.lv
+
+    .c_bulk_5v: ELEC::Capacitor {
+        .capacitance &= 100uF +/- 20%
+        .max_voltage >= 10V
+        @trait(_): ELEC::PARTS::has_package_requirements { .size &= "1206" }
+    }
+    .power_5v_raw.hv ~> .c_bulk_5v ~> .power_5v_raw.lv
+
+    /// ~100 mA charge from 5 V into empty supercap (limits IRM surge).
+    .charge_limit: ELEC::Resistor {
+        .resistance &= 47ohm +/- 5%
+        .max_power >= 0.5W
+        @trait(_): ELEC::PARTS::has_package_requirements { .size &= "1206" }
+    }
+
+    .supercap: SUPERCAP::JLCPCB_Assembly_0_47F5_5VDC
+    .d_irm_or: SS14::Slkor_SS14
+    .d_scap_or: SS14::Slkor_SS14
+
+    .power_5v_raw.hv ~> .charge_limit ~> .supercap.'1'
+    .supercap.'2' ~ .power_5v_raw.lv
+
+    .power_5v_raw.hv ~> .d_irm_or ~> .power_vsys.hv
+    .supercap.'1' ~> .d_scap_or ~> .power_vsys.hv
+
+    .c_vsys: ELEC::Capacitor {
+        .capacitance &= 47uF +/- 20%
+        .max_voltage >= 10V
+        @trait(_): ELEC::PARTS::has_package_requirements { .size &= "1206" }
+    }
+    .power_vsys.hv ~> .c_vsys ~> .power_vsys.lv
+
+    .ldo: LDO33::Texas_Instruments_TLV1117_33CDCYR
+    .ldo.INPUT ~ .power_vsys.hv
+    .ldo.OUTPUT_2 ~ .power_3v3.hv
+    .ldo.OUTPUT_4 ~ .power_3v3.hv
+    .ldo.ADJ_GND ~ .power_3v3.lv
+
+    .c_ldo_in: ELEC::Capacitor {
+        .capacitance &= 10uF +/- 20%
+        .max_voltage >= 10V
+        @trait(_): ELEC::PARTS::has_package_requirements { .size &= "0805" }
+    }
+    .c_ldo_out: ELEC::Capacitor {
+        .capacitance &= 22uF +/- 20%
+        .max_voltage >= 6.3V
+        @trait(_): ELEC::PARTS::has_package_requirements { .size &= "0805" }
+    }
+    .power_vsys.hv ~> .c_ldo_in ~> .power_vsys.lv
+    .power_3v3.hv ~> .c_ldo_out ~> .power_3v3.lv
+
+    .uvlo: SUPERVISOR::Diodes_Incorporated_APX803L_29SA_7
+    .uvlo.VCC ~ .power_3v3.hv
+    .uvlo.GND ~ .power_3v3.lv
+    .uvlo.nRESET ~ .n_reset.line
+
+    .n_reset_pullup: ELEC::Resistor {
+        .resistance &= 10kohm +/- 5%
+        @trait(_): ELEC::PARTS::has_package_requirements { .size &= "0402" }
+    }
+    .power_3v3.hv ~> .n_reset_pullup ~> .n_reset.line
+
+    .r_sense_hi: ELEC::Resistor {
+        .resistance &= 100kohm +/- 1%
+        @trait(_): ELEC::PARTS::has_package_requirements { .size &= "0402" }
+    }
+    .r_sense_lo: ELEC::Resistor {
+        .resistance &= 100kohm +/- 1%
+        @trait(_): ELEC::PARTS::has_package_requirements { .size &= "0402" }
+    }
+    .c_sense: ELEC::Capacitor {
+        .capacitance &= 100nF +/- 10%
+        .max_voltage >= 6.3V
+        @trait(_): ELEC::PARTS::has_package_requirements { .size &= "0402" }
+    }
+    .power_vsys.hv ~> .r_sense_hi ~> .vsys_sense.line
+    .vsys_sense.line ~> .r_sense_lo ~> .power_vsys.lv
+    .vsys_sense.line ~> .c_sense ~> .power_vsys.lv
+
+    @trait(_, .power_5v_raw.hv): ELEC::has_net_name_suggestion { .name &= "V5V_RAW"; .level &= "SUGGESTED" }
+    @trait(_, .power_vsys.hv): ELEC::has_net_name_suggestion { .name &= "VSYS"; .level &= "SUGGESTED" }
+    @trait(_, .power_3v3.hv): ELEC::has_net_name_suggestion { .name &= "VDD_3V3"; .level &= "SUGGESTED" }
+}

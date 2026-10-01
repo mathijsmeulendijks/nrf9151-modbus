@@ -1,0 +1,10 @@
+requires-atopile: "^0.16.0"
+archived: false
+
+paths:
+  src: ./
+  layout: ./layouts
+
+builds:
+  default:
+    entry: main.ato:App

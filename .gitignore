@@ -1,0 +1,11 @@
+# atopile build outputs
+.ato/
+build/
+
+# scratch
+*.tmp
+*~
+# editor / OS
+.DS_Store
+.vscode/
+.idea/

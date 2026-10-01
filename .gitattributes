@@ -1,0 +1,11 @@
+# Prism review logs are append-only JSONL; a union merge keeps both sides'
+# events and the reader orders them by timestamp.
+views/**/review.jsonl merge=union
+
+# Prism layout stores are machine-owned position state written by the shell;
+# on a conflicting merge keep this side wholesale (re-saving regenerates the
+# rest) rather than leaving JSON conflict markers a machine writer would choke on.
+views/**/layout.json merge=ours
+
+# Native schematic and footprint bundles are portable binary assets.
+*.hl binary
