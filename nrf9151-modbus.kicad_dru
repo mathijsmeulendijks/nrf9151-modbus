@@ -1,0 +1,27 @@
+(version 1)
+
+# --- JLCPCB 4-layer capabilities (JLC04161H-7628, 1 oz outer) ---
+(rule "JLC min track"
+  (constraint track_width (min 0.1mm)))
+(rule "JLC min clearance"
+  (constraint clearance (min 0.1mm)))
+(rule "JLC via hole"
+  (condition "A.Type == 'Via'")
+  (constraint hole_size (min 0.2mm))
+  (constraint annular_width (min 0.1mm)))
+(rule "JLC copper to edge"
+  (constraint edge_clearance (min 0.3mm)))
+
+# --- Mains: reinforced spacing from AC nets to everything else, basic L-N spacing ---
+(rule "Mains to SELV"
+  (condition "A.NetName == '/Power/AC_*' && B.NetName != '/Power/AC_*'")
+  (constraint clearance (min 6.0mm)))
+(rule "Mains L-N"
+  (condition "A.NetName == '/Power/AC_*' && B.NetName == '/Power/AC_*' && A.NetName != B.NetName && !A.intersectsCourtyard('J1') && !A.intersectsCourtyard('F1') && !A.intersectsCourtyard('PS1')")
+  (constraint clearance (min 2.5mm)))
+
+# --- RS-485 isolation barrier (ISOW1412): bus side vs board side ---
+# The shared RJ45 (J6) puts A/B ~1 mm from RS-232/CAN pins: functional isolation only, so J6 is exempt.
+(rule "Iso barrier"
+  (condition "(A.NetName == '/Isolated RS-485/GND_ISO' || A.NetName == '/Isolated RS-485/VISO' || A.NetName == 'RS485_A' || A.NetName == 'RS485_B') && !(B.NetName == '/Isolated RS-485/GND_ISO' || B.NetName == '/Isolated RS-485/VISO' || B.NetName == 'RS485_A' || B.NetName == 'RS485_B') && !A.intersectsCourtyard('J6')")
+  (constraint clearance (min 4.0mm)))

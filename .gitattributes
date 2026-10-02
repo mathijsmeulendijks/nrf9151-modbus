@@ -1,11 +1,22 @@
-# Prism review logs are append-only JSONL; a union merge keeps both sides'
-# events and the reader orders them by timestamp.
-views/**/review.jsonl merge=union
+* text=auto
 
-# Prism layout stores are machine-owned position state written by the shell;
-# on a conflicting merge keep this side wholesale (re-saving regenerates the
-# rest) rather than leaving JSON conflict markers a machine writer would choke on.
-views/**/layout.json merge=ours
+# KiCad sources are s-expression / JSON text: keep LF so diffs stay clean across OSes
+*.kicad_pro   text eol=lf
+*.kicad_sch   text eol=lf
+*.kicad_pcb   text eol=lf
+*.kicad_sym   text eol=lf
+*.kicad_mod   text eol=lf
+*.kicad_dru   text eol=lf
+*.kicad_wks   text eol=lf
+*-lib-table   text eol=lf
 
-# Native schematic and footprint bundles are portable binary assets.
-*.hl binary
+# 3D models are large and never diffed: keep them in Git LFS
+*.step filter=lfs diff=lfs merge=lfs -text
+*.stp  filter=lfs diff=lfs merge=lfs -text
+*.wrl  filter=lfs diff=lfs merge=lfs -text
+
+# fab artefacts
+*.zip  binary
+*.gbr  binary
+*.pdf  binary
+*.png  binary
